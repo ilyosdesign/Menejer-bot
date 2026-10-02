@@ -90,9 +90,9 @@ def analyze_with_gemini(content_data, is_audio=False, forced_topic=None):
     for attempt in range(3):
         try:
             if is_audio:
-                response = client.models.generate_content(model='gemini-3.8-flash', contents=[content_data, prompt])
+                response = client.models.generate_content(model='gemini-3.5-flash-lite', contents=[content_data, prompt])
             else:
-                response = client.models.generate_content(model='gemini-3.8-flash', contents=f"{prompt}\n\nXabar: {content_data}")
+                response = client.models.generate_content(model='gemini-3.5-flash-lite', contents=f"{prompt}\n\nXabar: {content_data}")
                 
             result_text = response.text.strip().replace("```json", "").replace("```", "")
             return json.loads(result_text)
@@ -184,10 +184,10 @@ def handle_custom_reminder_time(message):
             downloaded_file = bot.download_file(file_info.file_path)
             with open("temp_time.ogg", 'wb') as f: f.write(downloaded_file)
             audio_file = client.files.upload(file="temp_time.ogg")
-            response = client.models.generate_content(model='gemini-3.8-flash', contents=[prompt, audio_file])
+            response = client.models.generate_content(model='gemini-3.5-flash-lite', contents=[prompt, audio_file])
             os.remove("temp_time.ogg")
         else:
-            response = client.models.generate_content(model='gemini-3.8-flash', contents=f"{prompt}\n\nXabar: {message.text}")
+            response = client.models.generate_content(model='gemini-3.5-flash-lite', contents=f"{prompt}\n\nXabar: {message.text}")
             
         dt_str = response.text.strip().replace("`", "").strip()
         if "null" in dt_str.lower() or len(dt_str) < 10:
@@ -310,6 +310,7 @@ if __name__ == '__main__':
         bot.infinity_polling()
     except Exception as e:
         print("Xatolik:", e)
+
 
 
 
