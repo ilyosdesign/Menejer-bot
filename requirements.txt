@@ -1,3 +1,5 @@
 pyTelegramBotAPI==4.14.1
-google-generativeai
+google-genai
 APScheduler==3.10.4
+
+python-dotenv

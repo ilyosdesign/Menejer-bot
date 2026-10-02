@@ -8,8 +8,12 @@ import traceback
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 
-BOT_TOKEN = "8607831304:AAHCwiAP3uUy7jCgcBSf-7zEK2-qi7RJ7xM"
-GEMINI_API_KEY = "AQ.Ab8RN6IQqnbfHCn06HQxyac45YTkE77XY9dBG1t4QprIvrw6Bg"
+from dotenv import load_dotenv
+
+load_dotenv()
+
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8607831304:AAHCwiAP3uUy7jCgcBSf-7zEK2-qi7RJ7xM")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AQ.Ab8RN6Ipq8dseu2ZiAYUHuax6AJnBlC3BJmNL0xfLM7QvCKIXQ")
 MANAGERS = [355045101, 8591485024]
 GROUP_ID = -1004334403913
 
@@ -86,9 +90,9 @@ def analyze_with_gemini(content_data, is_audio=False, forced_topic=None):
     for attempt in range(3):
         try:
             if is_audio:
-                response = client.models.generate_content(model='gemini-2.5-flash', contents=[content_data, prompt])
+                response = client.models.generate_content(model='gemini-3.8-flash', contents=[content_data, prompt])
             else:
-                response = client.models.generate_content(model='gemini-2.5-flash', contents=f"{prompt}\n\nXabar: {content_data}")
+                response = client.models.generate_content(model='gemini-3.8-flash', contents=f"{prompt}\n\nXabar: {content_data}")
                 
             result_text = response.text.strip().replace("```json", "").replace("```", "")
             return json.loads(result_text)
@@ -180,10 +184,10 @@ def handle_custom_reminder_time(message):
             downloaded_file = bot.download_file(file_info.file_path)
             with open("temp_time.ogg", 'wb') as f: f.write(downloaded_file)
             audio_file = client.files.upload(file="temp_time.ogg")
-            response = client.models.generate_content(model='gemini-2.5-flash', contents=[prompt, audio_file])
+            response = client.models.generate_content(model='gemini-3.8-flash', contents=[prompt, audio_file])
             os.remove("temp_time.ogg")
         else:
-            response = client.models.generate_content(model='gemini-2.5-flash', contents=f"{prompt}\n\nXabar: {message.text}")
+            response = client.models.generate_content(model='gemini-3.8-flash', contents=f"{prompt}\n\nXabar: {message.text}")
             
         dt_str = response.text.strip().replace("`", "").strip()
         if "null" in dt_str.lower() or len(dt_str) < 10:
@@ -300,3 +304,4 @@ if __name__ == '__main__':
         bot.infinity_polling()
     except Exception as e:
         print("Xatolik:", e)
+
