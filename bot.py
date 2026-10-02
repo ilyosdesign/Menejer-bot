@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8607831304:AAHCwiAP3uUy7jCgcBSf-7zEK2-qi7RJ7xM")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AQ.Ab8RN6Ipq8dseu2ZiAYUHuax6AJnBlC3BJmNL0xfLM7QvCKIXQ")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AQ.Ab8RN6LAhvQgqgOzsb9koGmeyul9obvFt0mTCnqJSUtwLYf3Cg")
 MANAGERS = [355045101, 8591485024]
 GROUP_ID = -1004334403913
 
@@ -217,6 +217,12 @@ def send_task_to_group(topic_id, topic, task_desc, deadline_str, original_messag
     except Exception as e:
         bot.reply_to(original_message, f"❌ Guruhga yuborishda xatolik yuz berdi: {e}\n(Bot guruhda adminligini va Guruh ID to'g'riligini tekshiring)", reply_markup=get_main_markup())
 
+@bot.message_handler(commands=['id'])
+def send_id(message):
+    thread_id = message.message_thread_id
+    chat_id = message.chat.id
+    bot.reply_to(message, f"Guruh ID: {chat_id}\nMavzu (Topic) ID: {thread_id}")
+
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     if message.from_user.id not in MANAGERS:
@@ -304,4 +310,5 @@ if __name__ == '__main__':
         bot.infinity_polling()
     except Exception as e:
         print("Xatolik:", e)
+
 
