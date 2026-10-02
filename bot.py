@@ -14,7 +14,7 @@ MANAGERS = [355045101, 8591485024]
 GROUP_ID = -1004334403913
 
 bot = telebot.TeleBot(BOT_TOKEN)
-genai.configure(api_key=GEMINI_API_KEY)
+genai.configure(api_key=GEMINI_API_KEY, transport="rest")
 model = genai.GenerativeModel('gemini-flash-latest')
 
 scheduler = BackgroundScheduler()
