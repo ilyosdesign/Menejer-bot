@@ -278,8 +278,25 @@ def handle_voice_messages(message):
     except Exception as e:
         bot.edit_message_text(f"Xato yuz berdi: {e}", chat_id=message.chat.id, message_id=status_msg.message_id)
 
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from threading import Thread
+import os
+
+class SimpleHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot ishlayapti!")
+
+def run_dummy_server():
+    port = int(os.environ.get('PORT', 10000))
+    server = HTTPServer(('0.0.0.0', port), SimpleHandler)
+    server.serve_forever()
+
 if __name__ == '__main__':
     print("Bot ishga tushdi...")
+    # Render.com port talabi uchun veb-serverni alohida oqimda ishga tushiramiz
+    Thread(target=run_dummy_server, daemon=True).start()
     try:
         bot.infinity_polling()
     except Exception as e:
