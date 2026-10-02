@@ -1,6 +1,6 @@
 import telebot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton
-import google.generativeai as genai
+from google import genai
 import sqlite3
 import os
 import json
@@ -14,8 +14,7 @@ MANAGERS = [355045101, 8591485024]
 GROUP_ID = -1004334403913
 
 bot = telebot.TeleBot(BOT_TOKEN)
-genai.configure(api_key=GEMINI_API_KEY, transport="rest")
-model = genai.GenerativeModel('gemini-flash-latest')
+client = genai.Client(api_key=GEMINI_API_KEY)
 
 scheduler = BackgroundScheduler()
 scheduler.start()
@@ -87,9 +86,9 @@ def analyze_with_gemini(content_data, is_audio=False, forced_topic=None):
     for attempt in range(3):
         try:
             if is_audio:
-                response = model.generate_content([prompt, content_data])
+                response = client.models.generate_content(model='gemini-2.5-flash', contents=[content_data, prompt])
             else:
-                response = model.generate_content(f"{prompt}\n\nXabar: {content_data}")
+                response = client.models.generate_content(model='gemini-2.5-flash', contents=f"{prompt}\n\nXabar: {content_data}")
                 
             result_text = response.text.strip().replace("```json", "").replace("```", "")
             return json.loads(result_text)
@@ -180,11 +179,11 @@ def handle_custom_reminder_time(message):
             file_info = bot.get_file(message.voice.file_id)
             downloaded_file = bot.download_file(file_info.file_path)
             with open("temp_time.ogg", 'wb') as f: f.write(downloaded_file)
-            audio_file = genai.upload_file(path="temp_time.ogg")
-            response = model.generate_content([prompt, audio_file])
+            audio_file = client.files.upload(file="temp_time.ogg")
+            response = client.models.generate_content(model='gemini-2.5-flash', contents=[prompt, audio_file])
             os.remove("temp_time.ogg")
         else:
-            response = model.generate_content(f"{prompt}\n\nXabar: {message.text}")
+            response = client.models.generate_content(model='gemini-2.5-flash', contents=f"{prompt}\n\nXabar: {message.text}")
             
         dt_str = response.text.strip().replace("`", "").strip()
         if "null" in dt_str.lower() or len(dt_str) < 10:
@@ -253,7 +252,7 @@ def handle_direct_voice(message, forced_topic):
         file_info = bot.get_file(message.voice.file_id)
         downloaded_file = bot.download_file(file_info.file_path)
         with open("temp_voice.ogg", 'wb') as new_file: new_file.write(downloaded_file)
-        audio_file = genai.upload_file(path="temp_voice.ogg")
+        audio_file = client.files.upload(file="temp_voice.ogg")
         analysis = analyze_with_gemini(audio_file, is_audio=True, forced_topic=forced_topic)
         os.remove("temp_voice.ogg")
         bot.delete_message(message.chat.id, status_msg.message_id)
@@ -270,7 +269,7 @@ def handle_voice_messages(message):
         file_info = bot.get_file(message.voice.file_id)
         downloaded_file = bot.download_file(file_info.file_path)
         with open("temp_voice.ogg", 'wb') as new_file: new_file.write(downloaded_file)
-        audio_file = genai.upload_file(path="temp_voice.ogg")
+        audio_file = client.files.upload(file="temp_voice.ogg")
         analysis = analyze_with_gemini(audio_file, is_audio=True)
         os.remove("temp_voice.ogg")
         bot.delete_message(message.chat.id, status_msg.message_id)
