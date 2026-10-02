@@ -12,8 +12,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8607831304:AAHCwiAP3uUy7jCgcBSf-7zEK2-qi7RJ7xM")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AQ.Ab8RN6LAhvQgqgOzsb9koGmeyul9obvFt0mTCnqJSUtwLYf3Cg")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 MANAGERS = [355045101, 8591485024]
 GROUP_ID = -1004334403913
 
@@ -310,5 +310,6 @@ if __name__ == '__main__':
         bot.infinity_polling()
     except Exception as e:
         print("Xatolik:", e)
+
 
 
