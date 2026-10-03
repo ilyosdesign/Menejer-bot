@@ -246,7 +246,12 @@ def send_task_to_group(topic_id, topic, task_desc, deadline_str, assigned_to, or
         }
         res = requests.post(f"{SUPABASE_URL}/rest/v1/tasks", headers=get_supabase_headers(), json=data)
         res_data = res.json()
-        task_id = res_data[0]['id']
+        
+        if isinstance(res_data, list) and len(res_data) > 0:
+            task_id = res_data[0]['id']
+        else:
+            raise Exception(f"Kutilmagan javob: {res_data}")
+            
     except Exception as e:
         if original_message:
             bot.reply_to(original_message, f"Bazaga yozishda xato: {e}")
