@@ -69,6 +69,8 @@ def send_reminder(topic_id, task_desc):
         pass
 
 def extract_username(text):
+    if not text:
+        return None
     match = re.search(r'@([a-zA-Z0-9_]+)', text)
     if match:
         return match.group(1).lower()
@@ -108,7 +110,7 @@ def analyze_with_gemini(content_data, is_audio=False, forced_topic=None):
             if attempt == 2:
                 return {"error": str(e), "text": response.text if 'response' in locals() else "No response"}
 
-def process_analysis(analysis, message):
+def process_analysis(analysis, message, file_id=None, file_type=None):
     if not analysis:
         bot.reply_to(message, "Kechirasiz, Gemini tizimida xatolik yuz berdi.", reply_markup=get_main_markup())
         return
@@ -130,8 +132,9 @@ def process_analysis(analysis, message):
         elif assigned_to.startswith("@"):
             assigned_to = assigned_to[1:]
             
-        if message.content_type == 'text' and not assigned_to:
-            found_un = extract_username(message.text)
+        if message.content_type in ['text', 'photo', 'video', 'document'] and not assigned_to:
+            text_to_check = message.text or message.caption
+            found_un = extract_username(text_to_check)
             if found_un: assigned_to = found_un
 
         topic_id = TOPIC_IDS.get(topic)
@@ -141,14 +144,16 @@ def process_analysis(analysis, message):
             return
 
         if deadline_str:
-            send_task_to_group(topic_id, topic, task_desc, deadline_str, assigned_to, message)
+            send_task_to_group(topic_id, topic, task_desc, deadline_str, assigned_to, message, file_id, file_type)
         else:
             chat_id = message.chat.id
             pending_tasks[chat_id] = {
                 'topic_id': topic_id,
                 'topic': topic,
                 'task_desc': task_desc,
-                'assigned_to': assigned_to
+                'assigned_to': assigned_to,
+                'file_id': file_id,
+                'file_type': file_type
             }
             markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
             markup.add(KeyboardButton("❌ Yo'q, shart emas"), KeyboardButton("⏳ 1 soatdan keyin"))
@@ -168,22 +173,22 @@ def handle_reminder_choice(message):
     text = message.text
     
     if text == "❌ Yo'q, shart emas":
-        send_task_to_group(task_data['topic_id'], task_data['topic'], task_data['task_desc'], None, task_data['assigned_to'], message)
+        send_task_to_group(task_data['topic_id'], task_data['topic'], task_data['task_desc'], None, task_data['assigned_to'], message, task_data['file_id'], task_data['file_type'])
         del pending_tasks[chat_id]
     elif text == "⏳ 1 soatdan keyin":
         dt = (datetime.now() + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M")
-        send_task_to_group(task_data['topic_id'], task_data['topic'], task_data['task_desc'], dt, task_data['assigned_to'], message)
+        send_task_to_group(task_data['topic_id'], task_data['topic'], task_data['task_desc'], dt, task_data['assigned_to'], message, task_data['file_id'], task_data['file_type'])
         del pending_tasks[chat_id]
     elif text == "🌅 Ertaga ertalab (09:00)":
         tomorrow = datetime.now() + timedelta(days=1)
         dt = tomorrow.strftime("%Y-%m-%d 09:00")
-        send_task_to_group(task_data['topic_id'], task_data['topic'], task_data['task_desc'], dt, task_data['assigned_to'], message)
+        send_task_to_group(task_data['topic_id'], task_data['topic'], task_data['task_desc'], dt, task_data['assigned_to'], message, task_data['file_id'], task_data['file_type'])
         del pending_tasks[chat_id]
     elif text == "✏️ O'zim vaqtini aytaman":
         bot.send_message(chat_id, "Qachonga eslatishni gapiring yoki yozing (masalan, 'indinga soat 14:00 da'):")
         bot.register_next_step_handler(message, handle_custom_reminder_time)
     else:
-        send_task_to_group(task_data['topic_id'], task_data['topic'], task_data['task_desc'], None, task_data['assigned_to'], message)
+        send_task_to_group(task_data['topic_id'], task_data['topic'], task_data['task_desc'], None, task_data['assigned_to'], message, task_data['file_id'], task_data['file_type'])
         del pending_tasks[chat_id]
 
 def handle_custom_reminder_time(message):
@@ -209,14 +214,14 @@ def handle_custom_reminder_time(message):
         dt_str = response.text.strip().replace("`", "").strip()
         if "null" in dt_str.lower() or len(dt_str) < 10:
             dt_str = None
-        send_task_to_group(task_data['topic_id'], task_data['topic'], task_data['task_desc'], dt_str, task_data['assigned_to'], message)
+        send_task_to_group(task_data['topic_id'], task_data['topic'], task_data['task_desc'], dt_str, task_data['assigned_to'], message, task_data['file_id'], task_data['file_type'])
     except Exception as e:
         bot.send_message(chat_id, f"Vaqtni aniqlashda xato: {e}")
-        send_task_to_group(task_data['topic_id'], task_data['topic'], task_data['task_desc'], None, task_data['assigned_to'], message)
+        send_task_to_group(task_data['topic_id'], task_data['topic'], task_data['task_desc'], None, task_data['assigned_to'], message, task_data['file_id'], task_data['file_type'])
     
     del pending_tasks[chat_id]
 
-def send_task_to_group(topic_id, topic, task_desc, deadline_str, assigned_to, original_message):
+def send_task_to_group(topic_id, topic, task_desc, deadline_str, assigned_to, original_message, file_id=None, file_type=None):
     javob = f"📝 YANGA VAZIFA:\n🏢 Bo'lim: {topic}\n📌 Vazifa: {task_desc}"
     if assigned_to:
         javob += f"\n\n👷‍♂️ Biriktirildi: @{assigned_to}"
@@ -229,30 +234,37 @@ def send_task_to_group(topic_id, topic, task_desc, deadline_str, assigned_to, or
         except:
             pass
 
-    # Supabase ga yozish
     try:
         data = {
             "task_text": task_desc,
             "topic_name": topic,
             "deadline": deadline_str,
             "assigned_to": assigned_to,
-            "status": "pending"
+            "status": "pending",
+            "file_id": file_id,
+            "file_type": file_type
         }
         res = requests.post(f"{SUPABASE_URL}/rest/v1/tasks", headers=get_supabase_headers(), json=data)
         res_data = res.json()
         task_id = res_data[0]['id']
     except Exception as e:
         if original_message:
-            bot.reply_to(original_message, f"Bazaga yozishda xato (API URL yoki KEY noto'g'ri bo'lishi mumkin): {e}")
+            bot.reply_to(original_message, f"Bazaga yozishda xato: {e}")
         return
 
     markup = InlineKeyboardMarkup()
     markup.add(InlineKeyboardButton("✅ Bajarildi", callback_data=f"done_{task_id}"))
 
     try:
-        sent_msg = bot.send_message(GROUP_ID, javob, message_thread_id=topic_id, reply_markup=markup)
+        if file_id and file_type == 'photo':
+            sent_msg = bot.send_photo(GROUP_ID, file_id, caption=javob, message_thread_id=topic_id, reply_markup=markup)
+        elif file_id and file_type == 'video':
+            sent_msg = bot.send_video(GROUP_ID, file_id, caption=javob, message_thread_id=topic_id, reply_markup=markup)
+        elif file_id and file_type == 'document':
+            sent_msg = bot.send_document(GROUP_ID, file_id, caption=javob, message_thread_id=topic_id, reply_markup=markup)
+        else:
+            sent_msg = bot.send_message(GROUP_ID, javob, message_thread_id=topic_id, reply_markup=markup)
         
-        # Xabar ID sini bazada yangilaymiz
         requests.patch(f"{SUPABASE_URL}/rest/v1/tasks?id=eq.{task_id}", 
                        headers=get_supabase_headers(), 
                        json={"message_id": sent_msg.message_id})
@@ -263,15 +275,14 @@ def send_task_to_group(topic_id, topic, task_desc, deadline_str, assigned_to, or
         if original_message:
             bot.reply_to(original_message, f"❌ Guruhga yuborishda xatolik yuz berdi: {e}", reply_markup=get_main_markup())
 
-@bot.message_handler(func=lambda m: m.reply_to_message and m.chat.id == GROUP_ID and extract_username(m.text))
+@bot.message_handler(func=lambda m: m.reply_to_message and m.chat.id == GROUP_ID and extract_username(m.text or m.caption))
 def assign_worker_by_reply(message):
     if message.from_user.id not in MANAGERS:
         return
         
     reply_msg_id = message.reply_to_message.message_id
-    new_worker = extract_username(message.text)
+    new_worker = extract_username(message.text or message.caption)
     
-    # Bazadan qidirish
     try:
         res = requests.get(f"{SUPABASE_URL}/rest/v1/tasks?message_id=eq.{reply_msg_id}&status=eq.pending", headers=get_supabase_headers())
         rows = res.json()
@@ -282,6 +293,8 @@ def assign_worker_by_reply(message):
         task_desc = row['task_text']
         topic = row['topic_name']
         deadline_str = row['deadline']
+        file_id = row.get('file_id')
+        file_type = row.get('file_type')
         
         requests.patch(f"{SUPABASE_URL}/rest/v1/tasks?id=eq.{task_id}", 
                        headers=get_supabase_headers(), 
@@ -294,7 +307,11 @@ def assign_worker_by_reply(message):
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("✅ Bajarildi", callback_data=f"done_{task_id}"))
         
-        bot.edit_message_text(javob, chat_id=GROUP_ID, message_id=reply_msg_id, reply_markup=markup)
+        if file_id and file_type:
+            bot.edit_message_caption(javob, chat_id=GROUP_ID, message_id=reply_msg_id, reply_markup=markup)
+        else:
+            bot.edit_message_text(javob, chat_id=GROUP_ID, message_id=reply_msg_id, reply_markup=markup)
+            
         bot.delete_message(GROUP_ID, message.message_id) 
     except:
         pass
@@ -318,6 +335,8 @@ def handle_done(call):
         current_topic = row.get('topic_name')
         status = row.get('status')
         assigned_to = row.get('assigned_to')
+        file_id = row.get('file_id')
+        file_type = row.get('file_type')
         
         if status == 'done':
             bot.answer_callback_query(call.id, "Bu vazifa allaqachon bajarilgan!")
@@ -329,13 +348,17 @@ def handle_done(call):
                 bot.answer_callback_query(call.id, "❌ Kechirasiz, bu vazifa sizga biriktirilmagan!", show_alert=True)
                 return
             
-        # Bajarildi deb yozamiz
         requests.patch(f"{SUPABASE_URL}/rest/v1/tasks?id=eq.{task_id}", 
                        headers=get_supabase_headers(), 
                        json={"status": "done"})
         
         done_msg = f"✅ BAJARILDI!\n🏢 Bo'lim: {current_topic}\n📌 Vazifa: {task_desc}\n\n👷‍♂️ Tugatgan usta: {user_name}"
-        bot.edit_message_text(done_msg, chat_id=call.message.chat.id, message_id=call.message.message_id)
+        
+        if file_id and file_type:
+            bot.edit_message_caption(done_msg, chat_id=call.message.chat.id, message_id=call.message.message_id)
+        else:
+            bot.edit_message_text(done_msg, chat_id=call.message.chat.id, message_id=call.message.message_id)
+            
         bot.answer_callback_query(call.id, "Vazifa bajarildi deb belgilandi!")
         
         for manager in MANAGERS:
@@ -355,7 +378,7 @@ def handle_done(call):
             else:
                 next_topic_id = TOPIC_IDS.get(next_topic)
                 if next_topic_id:
-                    send_task_to_group(next_topic_id, next_topic, f"(Davomi) {task_desc}", None, None, None)
+                    send_task_to_group(next_topic_id, next_topic, f"(Davomi) {task_desc}", None, None, None, file_id, file_type)
     except Exception as e:
         bot.answer_callback_query(call.id, f"Baza xatosi: {e}")
 
@@ -370,32 +393,65 @@ def send_welcome(message):
     if message.from_user.id not in MANAGERS:
         bot.reply_to(message, "Kechirasiz, men faqat Rahbar bilan ishlayman.")
         return
-    bot.reply_to(message, "Assalomu alaykum, Rahbar! Pastdagi tezkor tugmalardan kerakli bo'limni tanlang yoki shunchaki vazifani yozing/gapiring:", reply_markup=get_main_markup())
+    bot.reply_to(message, "Assalomu alaykum, Rahbar! Pastdagi tezkor tugmalardan kerakli bo'limni tanlang yoki shunchaki vazifani yozing/gapiring/rasm yuboring:", reply_markup=get_main_markup())
 
-@bot.message_handler(content_types=['text'])
-def handle_text_messages(message):
+@bot.message_handler(content_types=['text', 'photo', 'video', 'document'])
+def handle_media_and_text(message):
     if message.from_user.id not in MANAGERS:
         return
+        
+    text_to_check = message.text or message.caption or ""
+    
+    file_id = None
+    file_type = None
+    
+    if message.content_type == 'photo':
+        file_id = message.photo[-1].file_id
+        file_type = 'photo'
+    elif message.content_type == 'video':
+        file_id = message.video.file_id
+        file_type = 'video'
+    elif message.content_type == 'document':
+        file_id = message.document.file_id
+        file_type = 'document'
+        
     topics = ["O'lchovlar", "Chizmalar", "Fabrika", "Ustanovka", "Sharq yulduz"]
     for t in topics:
-        if t in message.text:
-            bot.reply_to(message, f"Ajoyib! {t} bo'limi uchun topshiriqni matn ko'rinishida yozing yoki ovozli xabar (voice) yuboring:")
-            bot.register_next_step_handler(message, process_direct_task, t)
+        if t in text_to_check:
+            bot.reply_to(message, f"Ajoyib! {t} bo'limi uchun topshiriq matnini yozing (yoki rasm/ovozli xabar yuboring):")
+            bot.register_next_step_handler(message, process_direct_task, t, file_id, file_type)
             return
-    analysis = analyze_with_gemini(message.text, is_audio=False)
-    process_analysis(analysis, message)
-
-def process_direct_task(message, forced_topic):
-    if message.content_type == 'text' and any(t in message.text for t in ["O'lchovlar", "Chizmalar", "Fabrika", "Ustanovka", "Sharq yulduz"]):
-        handle_text_messages(message)
+            
+    if text_to_check.strip() == "" and file_id:
+        bot.reply_to(message, "Iltimos, rasm yoki video ostiga vazifa nima ekanligini yozib yuboring (masalan: 'Chizmalarga, shuni chizish kerak').", reply_markup=get_main_markup())
         return
-    if message.content_type == 'text':
-        analysis = analyze_with_gemini(message.text, is_audio=False, forced_topic=forced_topic)
-        process_analysis(analysis, message)
-    elif message.content_type == 'voice':
-        handle_direct_voice(message, forced_topic)
+        
+    analysis = analyze_with_gemini(text_to_check, is_audio=False)
+    process_analysis(analysis, message, file_id, file_type)
 
-def handle_direct_voice(message, forced_topic):
+def process_direct_task(message, forced_topic, prev_file_id=None, prev_file_type=None):
+    text_to_check = message.text or message.caption or ""
+    
+    file_id = prev_file_id
+    file_type = prev_file_type
+    
+    if message.content_type == 'photo':
+        file_id = message.photo[-1].file_id
+        file_type = 'photo'
+    elif message.content_type == 'video':
+        file_id = message.video.file_id
+        file_type = 'video'
+    elif message.content_type == 'document':
+        file_id = message.document.file_id
+        file_type = 'document'
+
+    if message.content_type in ['text', 'photo', 'video', 'document']:
+        analysis = analyze_with_gemini(text_to_check, is_audio=False, forced_topic=forced_topic)
+        process_analysis(analysis, message, file_id, file_type)
+    elif message.content_type == 'voice':
+        handle_direct_voice(message, forced_topic, file_id, file_type)
+
+def handle_direct_voice(message, forced_topic, file_id=None, file_type=None):
     status_msg = bot.reply_to(message, "🎤 Ovozli xabar o'qilmoqda...")
     try:
         file_info = bot.get_file(message.voice.file_id)
@@ -405,7 +461,7 @@ def handle_direct_voice(message, forced_topic):
         analysis = analyze_with_gemini(audio_file, is_audio=True, forced_topic=forced_topic)
         os.remove("temp_voice.ogg")
         bot.delete_message(message.chat.id, status_msg.message_id)
-        process_analysis(analysis, message)
+        process_analysis(analysis, message, file_id, file_type)
     except Exception as e:
         bot.edit_message_text(f"Xato yuz berdi: {e}", chat_id=message.chat.id, message_id=status_msg.message_id)
 
@@ -422,7 +478,7 @@ def handle_voice_messages(message):
         analysis = analyze_with_gemini(audio_file, is_audio=True)
         os.remove("temp_voice.ogg")
         bot.delete_message(message.chat.id, status_msg.message_id)
-        process_analysis(analysis, message)
+        process_analysis(analysis, message, None, None)
     except Exception as e:
         bot.edit_message_text(f"Xato yuz berdi: {e}", chat_id=message.chat.id, message_id=status_msg.message_id)
 
