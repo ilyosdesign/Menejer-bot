@@ -1,4 +1,4 @@
-import telebot
+﻿import telebot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from google import genai
 import os
@@ -29,6 +29,7 @@ TOPIC_IDS = {
     "O'lchovlar": 4,
     "Chizmalar": 6,
     "Sharq yulduz": 8,
+    "Kraska xona": 1,
     "Fabrika": 10,
     "Ustanovka": 12
 }
@@ -54,17 +55,17 @@ def get_supabase_headers():
 def get_main_markup():
     markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     markup.add(
-        KeyboardButton("📏 O'lchovlar"),
-        KeyboardButton("✏️ Chizmalar"),
-        KeyboardButton("🌟 Sharq yulduz"),
-        KeyboardButton("🏭 Fabrika"),
-        KeyboardButton("🛠 Ustanovka")
+        KeyboardButton("рџ“Џ O'lchovlar"),
+        KeyboardButton("вњЏпёЏ Chizmalar"),
+        KeyboardButton("рџЊџ Sharq yulduz"),
+        KeyboardButton("рџЏ­ Fabrika"),
+        KeyboardButton("рџ›  Ustanovka")
     )
     return markup
 
 def send_reminder(topic_id, task_desc):
     try:
-        bot.send_message(GROUP_ID, f"⏰ ESLATMA!\n\nUshbu vazifani bajarish vaqti keldi:\n📌 {task_desc}", message_thread_id=topic_id)
+        bot.send_message(GROUP_ID, f"вЏ° ESLATMA!\n\nUshbu vazifani bajarish vaqti keldi:\nрџ“Њ {task_desc}", message_thread_id=topic_id)
     except:
         pass
 
@@ -156,8 +157,8 @@ def process_analysis(analysis, message, file_id=None, file_type=None):
                 'file_type': file_type
             }
             markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-            markup.add(KeyboardButton("❌ Yo'q, shart emas"), KeyboardButton("⏳ 1 soatdan keyin"))
-            markup.add(KeyboardButton("🌅 Ertaga ertalab (09:00)"), KeyboardButton("✏️ O'zim vaqtini aytaman"))
+            markup.add(KeyboardButton("вќЊ Yo'q, shart emas"), KeyboardButton("вЏі 1 soatdan keyin"))
+            markup.add(KeyboardButton("рџЊ… Ertaga ertalab (09:00)"), KeyboardButton("вњЏпёЏ O'zim vaqtini aytaman"))
             bot.reply_to(message, "Topshiriq qabul qilindi. Bunga eslatma (taymer) qo'yamizmi?", reply_markup=markup)
             bot.register_next_step_handler(message, handle_reminder_choice)
     else:
@@ -172,19 +173,19 @@ def handle_reminder_choice(message):
     task_data = pending_tasks[chat_id]
     text = message.text
     
-    if text == "❌ Yo'q, shart emas":
+    if text == "вќЊ Yo'q, shart emas":
         send_task_to_group(task_data['topic_id'], task_data['topic'], task_data['task_desc'], None, task_data['assigned_to'], message, task_data['file_id'], task_data['file_type'])
         del pending_tasks[chat_id]
-    elif text == "⏳ 1 soatdan keyin":
+    elif text == "вЏі 1 soatdan keyin":
         dt = (datetime.now() + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M")
         send_task_to_group(task_data['topic_id'], task_data['topic'], task_data['task_desc'], dt, task_data['assigned_to'], message, task_data['file_id'], task_data['file_type'])
         del pending_tasks[chat_id]
-    elif text == "🌅 Ertaga ertalab (09:00)":
+    elif text == "рџЊ… Ertaga ertalab (09:00)":
         tomorrow = datetime.now() + timedelta(days=1)
         dt = tomorrow.strftime("%Y-%m-%d 09:00")
         send_task_to_group(task_data['topic_id'], task_data['topic'], task_data['task_desc'], dt, task_data['assigned_to'], message, task_data['file_id'], task_data['file_type'])
         del pending_tasks[chat_id]
-    elif text == "✏️ O'zim vaqtini aytaman":
+    elif text == "вњЏпёЏ O'zim vaqtini aytaman":
         bot.send_message(chat_id, "Qachonga eslatishni gapiring yoki yozing (masalan, 'indinga soat 14:00 da'):")
         bot.register_next_step_handler(message, handle_custom_reminder_time)
     else:
@@ -222,15 +223,15 @@ def handle_custom_reminder_time(message):
     del pending_tasks[chat_id]
 
 def send_task_to_group(topic_id, topic, task_desc, deadline_str, assigned_to, original_message, file_id=None, file_type=None):
-    javob = f"📝 YANGA VAZIFA:\n🏢 Bo'lim: {topic}\n📌 Vazifa: {task_desc}"
+    javob = f"рџ“ќ YANGA VAZIFA:\nрџЏў Bo'lim: {topic}\nрџ“Њ Vazifa: {task_desc}"
     if assigned_to:
-        javob += f"\n\n👷‍♂️ Biriktirildi: @{assigned_to}"
+        javob += f"\n\nрџ‘·вЂЌв™‚пёЏ Biriktirildi: @{assigned_to}"
         
     if deadline_str:
         try:
             deadline_dt = datetime.strptime(deadline_str, "%Y-%m-%d %H:%M")
             scheduler.add_job(send_reminder, 'date', run_date=deadline_dt, args=[topic_id, task_desc])
-            javob += f"\n⏰ Eslatma: {deadline_str}"
+            javob += f"\nвЏ° Eslatma: {deadline_str}"
         except:
             pass
 
@@ -258,7 +259,7 @@ def send_task_to_group(topic_id, topic, task_desc, deadline_str, assigned_to, or
         return
 
     markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("✅ Bajarildi", callback_data=f"done_{task_id}"))
+    markup.add(InlineKeyboardButton("вњ… Bajarildi", callback_data=f"done_{task_id}"))
 
     try:
         if file_id and file_type == 'photo':
@@ -275,10 +276,10 @@ def send_task_to_group(topic_id, topic, task_desc, deadline_str, assigned_to, or
                        json={"message_id": sent_msg.message_id})
         
         if original_message and original_message.chat.id != GROUP_ID:
-            bot.reply_to(original_message, f"✅ Vazifa guruhdagi '{topic}' bo'limiga yuborildi.", reply_markup=get_main_markup())
+            bot.reply_to(original_message, f"вњ… Vazifa guruhdagi '{topic}' bo'limiga yuborildi.", reply_markup=get_main_markup())
     except Exception as e:
         if original_message:
-            bot.reply_to(original_message, f"❌ Guruhga yuborishda xatolik yuz berdi: {e}", reply_markup=get_main_markup())
+            bot.reply_to(original_message, f"вќЊ Guruhga yuborishda xatolik yuz berdi: {e}", reply_markup=get_main_markup())
 
 @bot.message_handler(func=lambda m: m.reply_to_message and m.chat.id == GROUP_ID and extract_username(m.text or m.caption))
 def assign_worker_by_reply(message):
@@ -305,12 +306,12 @@ def assign_worker_by_reply(message):
                        headers=get_supabase_headers(), 
                        json={"assigned_to": new_worker})
         
-        javob = f"📝 YANGA VAZIFA:\n🏢 Bo'lim: {topic}\n📌 Vazifa: {task_desc}\n\n👷‍♂️ Biriktirildi: @{new_worker}"
+        javob = f"рџ“ќ YANGA VAZIFA:\nрџЏў Bo'lim: {topic}\nрџ“Њ Vazifa: {task_desc}\n\nрџ‘·вЂЌв™‚пёЏ Biriktirildi: @{new_worker}"
         if deadline_str:
-            javob += f"\n⏰ Eslatma: {deadline_str}"
+            javob += f"\nвЏ° Eslatma: {deadline_str}"
             
         markup = InlineKeyboardMarkup()
-        markup.add(InlineKeyboardButton("✅ Bajarildi", callback_data=f"done_{task_id}"))
+        markup.add(InlineKeyboardButton("вњ… Bajarildi", callback_data=f"done_{task_id}"))
         
         if file_id and file_type:
             bot.edit_message_caption(javob, chat_id=GROUP_ID, message_id=reply_msg_id, reply_markup=markup)
@@ -350,14 +351,14 @@ def handle_done(call):
         if assigned_to:
             is_manager = call.from_user.id in MANAGERS
             if not is_manager and clicker_un != assigned_to.lower():
-                bot.answer_callback_query(call.id, "❌ Kechirasiz, bu vazifa sizga biriktirilmagan!", show_alert=True)
+                bot.answer_callback_query(call.id, "вќЊ Kechirasiz, bu vazifa sizga biriktirilmagan!", show_alert=True)
                 return
             
         requests.patch(f"{SUPABASE_URL}/rest/v1/tasks?id=eq.{task_id}", 
                        headers=get_supabase_headers(), 
                        json={"status": "done"})
         
-        done_msg = f"✅ BAJARILDI!\n🏢 Bo'lim: {current_topic}\n📌 Vazifa: {task_desc}\n\n👷‍♂️ Tugatgan usta: {user_name}"
+        done_msg = f"вњ… BAJARILDI!\nрџЏў Bo'lim: {current_topic}\nрџ“Њ Vazifa: {task_desc}\n\nрџ‘·вЂЌв™‚пёЏ Tugatgan usta: {user_name}"
         
         if file_id and file_type:
             bot.edit_message_caption(done_msg, chat_id=call.message.chat.id, message_id=call.message.message_id)
@@ -368,7 +369,7 @@ def handle_done(call):
         
         for manager in MANAGERS:
             try:
-                bot.send_message(manager, f"📈 HISOBOT: {current_topic} bo'limida ish tugatildi!\n👷‍♂️ Ustasi: {user_name}\n📌 Vazifa: {task_desc}")
+                bot.send_message(manager, f"рџ“€ HISOBOT: {current_topic} bo'limida ish tugatildi!\nрџ‘·вЂЌв™‚пёЏ Ustasi: {user_name}\nрџ“Њ Vazifa: {task_desc}")
             except:
                 pass
                 
@@ -377,7 +378,7 @@ def handle_done(call):
             if next_topic == "TUGADI":
                 for manager in MANAGERS:
                     try:
-                        bot.send_message(manager, f"🎉 LOYIHA TO'LIQ TUGATILDI (Ustanovka yakunlandi)!\n📌 Vazifa: {task_desc}")
+                        bot.send_message(manager, f"рџЋ‰ LOYIHA TO'LIQ TUGATILDI (Ustanovka yakunlandi)!\nрџ“Њ Vazifa: {task_desc}")
                     except:
                         pass
             else:
@@ -420,7 +421,7 @@ def handle_media_and_text(message):
         file_id = message.document.file_id
         file_type = 'document'
         
-    topics = ["O'lchovlar", "Chizmalar", "Fabrika", "Ustanovka", "Sharq yulduz"]
+    topics = ["O'lchovlar", "Chizmalar", "Sharq yulduz", "Kraska xona", "Fabrika", "Ustanovka"]
     for t in topics:
         if t in text_to_check:
             bot.reply_to(message, f"Ajoyib! {t} bo'limi uchun topshiriq matnini yozing (yoki rasm/ovozli xabar yuboring):")
@@ -457,7 +458,7 @@ def process_direct_task(message, forced_topic, prev_file_id=None, prev_file_type
         handle_direct_voice(message, forced_topic, file_id, file_type)
 
 def handle_direct_voice(message, forced_topic, file_id=None, file_type=None):
-    status_msg = bot.reply_to(message, "🎤 Ovozli xabar o'qilmoqda...")
+    status_msg = bot.reply_to(message, "рџЋ¤ Ovozli xabar o'qilmoqda...")
     try:
         file_info = bot.get_file(message.voice.file_id)
         downloaded_file = bot.download_file(file_info.file_path)
@@ -474,7 +475,7 @@ def handle_direct_voice(message, forced_topic, file_id=None, file_type=None):
 def handle_voice_messages(message):
     if message.from_user.id not in MANAGERS:
         return
-    status_msg = bot.reply_to(message, "🎤 Ovozli xabar o'qilmoqda...")
+    status_msg = bot.reply_to(message, "рџЋ¤ Ovozli xabar o'qilmoqda...")
     try:
         file_info = bot.get_file(message.voice.file_id)
         downloaded_file = bot.download_file(file_info.file_path)
@@ -509,3 +510,4 @@ if __name__ == '__main__':
         bot.infinity_polling()
     except Exception as e:
         print("Xatolik:", e)
+
